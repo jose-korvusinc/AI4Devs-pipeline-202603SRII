@@ -1,0 +1,89 @@
+name: CI/CD Backend
+
+# Build + test on every push/PR to main; deploy to EC2 only on push to main.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# Run all steps inside the backend/ folder (monorepo layout).
+defaults:
+  run:
+    working-directory: backend
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # Build and test the backend on every push and pull request.
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: Build & Test
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 18
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Generate Prisma client
+        run: npx prisma generate
+
+      - name: Build (tsc)
+        run: npm run build
+
+      - name: Run tests
+        run: npm test
+
+  # ---------------------------------------------------------------------------
+  # Deploy to the EC2 instance over SSH. Runs only on push to main and only
+  # if build-and-test passed.
+  # ---------------------------------------------------------------------------
+  deploy:
+    name: Deploy to EC2
+    runs-on: ubuntu-latest
+    needs: build-and-test
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      # We use appleboy/ssh-action rather than a raw ssh heredoc: it handles the
+      # .pem key, known_hosts and connection cleanly, and keeps the secret out
+      # of the logs. The remote script uses `set -e` so any failed command
+      # fails the whole deploy.
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          # Path on the server where the repo is already cloned (see provision script).
+          # Override by setting the APP_DIR repository variable; defaults to ~/app.
+          envs: DATABASE_URL
+          script: |
+            set -e
+            APP_DIR="${{ vars.APP_DIR || '~/app' }}"
+            cd "$APP_DIR"
+
+            echo "==> Pulling latest code"
+            git fetch --all
+            git reset --hard origin/main
+
+            echo "==> Installing & building backend"
+            cd backend
+            npm ci
+            npx prisma generate
+            npx prisma migrate deploy
+            npm run build
+
+            echo "==> Restarting app with PM2"
+            pm2 restart lti-backend || pm2 start dist/index.js --name lti-backend
+            pm2 save
+            echo "==> Deploy complete"
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
