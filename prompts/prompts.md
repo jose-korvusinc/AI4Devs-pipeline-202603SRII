@@ -97,3 +97,42 @@ IMPLEMENTATION NOTES
 After writing the script, list the exact commands to copy it to the instance and run it
 (e.g. via `scp` with the .pem key and `ssh`), and note anything I must edit before running.
 ----------------------------------------------------------------------------------------------------
+
+6. FIX ERROR GITHUB ACTIONS WITH CLAUDE
+
+Fix this error in Github Actions:
+FAIL dist/application/services/positionService.test.js
+  ● Console
+
+    console.error
+      Error retrieving candidates by position: PrismaClientInitializationError:
+      Invalid `prisma.application.findMany()` invocation in
+      /home/runner/work/AI4Devs-pipeline-202603SRII/AI4Devs-pipeline-202603SRII/backend/dist/application/services/positionService.js:54:57
+
+        51 switch (_a.label) {
+        52     case 0:
+        53         _a.trys.push([0, 2, , 3]);
+      → 54         return [4 /*yield*/, prisma.application.findMany(
+      Can't reach database server at `localhost:5432`
+
+      Please make sure your database server is running at `localhost:5432`.
+          at In.handleRequestError (/home/runner/work/AI4Devs-pipeline-202603SRII/AI4Devs-pipeline-202603SRII/backend/node_modules/@prisma/client/runtime/library.js:122:7177)
+          at In.handleAndLogRequestError (/home/runner/work/AI4Devs-pipeline-202603SRII/AI4Devs-pipeline-202603SRII/backend/node_modules/@prisma/client/runtime/library.js:122:6211)
+          at In.request (/home/runner/work/AI4Devs-pipeline-202603SRII/AI4Devs-pipeline-202603SRII/backend/node_modules/@prisma/client/runtime/library.js:122:5919)
+          at l (/home/runner/work/AI4Devs-pipeline-202603SRII/AI4Devs-pipeline-202603SRII/backend/node_modules/@prisma/client/runtime/library.js:127:11167) {
+        clientVersion: '5.14.0',
+        errorCode: undefined
+      }
+
+      71 |             case 2:
+      72 |                 error_1 = _a.sent();
+    > 73 |                 console.error('Error retrieving candidates by position:', error_1);
+         |                         ^
+      74 |                 throw new Error('Error retrieving candidates by position');
+      75 |             case 3: return [2 /*return*/];
+      76 |         }
+
+      at dist/application/services/positionService.js:73:25
+      at step (dist/application/services/positionService.js:33:23)
+      at Object.throw (dist/application/services/positionService.js:14:53)
+      at rejected (dist/application/services/positionService.js:6:65)
